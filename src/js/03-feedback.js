@@ -1,80 +1,99 @@
 import * as throttle from 'lodash.throttle';
 
-const LS_KEY = 'feedback-form-state';
-
-const formRef = document.querySelector('.feedback-form');
 const ref = {
-  emailRef: formRef.elements.email,
-  messageRef: formRef.elements.message,
+  formRef: document.querySelector('.feedback-form'),
+  emailRef: document.querySelector('input[name="email"]'),
+  messageRef: document.querySelector('textarea[name="message"]'),
 };
 
 ref.emailRef.setAttribute('required', true);
 ref.messageRef.setAttribute('required', true);
 ref.messageRef.setAttribute('minlength', 3);
 
-setFormInputFromLS(ref);
-
-formRef.addEventListener('input', throttle(saveFormDataToLS, 500));
-
-formRef.addEventListener('submit', event => {
-  event.preventDefault();
-  const {
-    elements: { email, message },
-  } = event.currentTarget;
-
-  const formData = createObj(email.value, message.value);
-
-  console.log('feedbackFormDataObj ', formData);
-  formRef.reset();
-  clearLS();
-});
-
-function setFormInputFromLS({ emailRef, messageRef }) {
-  const localData = readFromLS();
-
-  console.log('localData ', localData);
-  if (!localData) {
-    return;
-  }
-  emailRef.value = localData.email;
-  messageRef.value = localData.message;
-}
-
-function saveFormDataToLS(event) {
-  const localData = readFromLS();
-  if ('INPUT' === event.target.nodeName) {
-    localData.email = event.target.value;
+class FeedbackForm {
+  constructor({ formRef, emailRef, messageRef }) {
+    this.formRef = formRef;
+    this.emailRef = emailRef;
+    this.messageRef = messageRef;
   }
 
-  if ('TEXTAREA' === event.target.nodeName) {
-    localData.message = event.target.value;
-  }
-  saveToLS(localData);
-}
+  LS_KEY = 'feedback-form-state';
 
-function readFromLS() {
-  try {
-    const localData = JSON.parse(localStorage.getItem(LS_KEY));
-    if (!localData) {
-      return createObj('', '');
+  init() {
+    this.setFormInputFromLS(this.emailRef, this.messageRef);
+    this.addListeners(this.formRef);
+  }
+
+  addListeners(formRef) {
+    formRef.addEventListener(
+      'input',
+      throttle(this.saveFormDataToLS.bind(this), 500)
+    );
+
+    formRef.addEventListener('submit', this.onSubmit.bind(this));
+  }
+
+  onSubmit(event) {
+    event.preventDefault();
+    const {
+      elements: { email, message },
+    } = event.currentTarget;
+
+    const formData = this.createObj(email.value, message.value);
+    console.log('FormDataObject =>', formData);
+
+    this.formRef.reset();
+    this.clearLS();
+  }
+
+  setFormInputFromLS(emailRef, messageRef) {
+    const localData = this.readFromLS();
+
+    emailRef.value = localData.email;
+    messageRef.value = localData.message;
+  }
+
+  saveFormDataToLS(event) {
+    const localData = this.readFromLS();
+
+    if ('INPUT' === event.target.nodeName) {
+      localData.email = event.target.value;
     }
-    return localData;
-  } catch (error) {
-    console.log('Error ', error);
+
+    if ('TEXTAREA' === event.target.nodeName) {
+      localData.message = event.target.value;
+    }
+
+    this.saveToLS(localData);
+  }
+
+  readFromLS() {
+    try {
+      const localData = JSON.parse(localStorage.getItem(this.LS_KEY));
+      if (!localData) {
+        return this.createObj('', '');
+      }
+      return localData;
+    } catch (error) {
+      console.log('Error ', error);
+      return this.createObj('', '');
+    }
+  }
+
+  clearLS() {
+    this.saveToLS(null);
+  }
+
+  saveToLS(value) {
+    localStorage.setItem(this.LS_KEY, JSON.stringify(value));
+  }
+
+  createObj(email, message) {
+    return {
+      email: email,
+      message: message,
+    };
   }
 }
 
-function clearLS() {
-  saveToLS(null);
-}
-
-function saveToLS(value) {
-  localStorage.setItem(LS_KEY, JSON.stringify(value));
-}
-
-function createObj(email, message) {
-  return {
-    email: email,
-    message: message,
-  };
-}
+new FeedbackForm(ref).init();
